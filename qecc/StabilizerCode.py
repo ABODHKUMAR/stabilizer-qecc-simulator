@@ -6,6 +6,7 @@ from typing import List
 def mod2(x: int):
     return x % 2
 
+
 vectorized_mod2 = np.vectorize(mod2)
 
 
@@ -144,18 +145,26 @@ class StabilizerCode:
         """
         random.seed()
 
-        self.H = self.__stabilizer_str_to_check_mat(stabilizer_str)
-        self.L = self.__stabilizer_str_to_check_mat(logic_str)
-        assert np.shape(self.H)[1] == np.shape(self.L)[1]
+        self._H = self.__stabilizer_str_to_check_mat(stabilizer_str)
+        self._L = self.__stabilizer_str_to_check_mat(logic_str)
+        assert np.shape(self._H)[1] == np.shape(self._L)[1]
 
-        self.n = len(stabilizer_str[0])
-        self.k = self.n - len(stabilizer_str)
+        self._n = len(stabilizer_str[0])
+        self._k = self.n - len(stabilizer_str)
         print("This is a [[", self.n, ",", self.k, "]] code. ")
 
-        self.basis = None
-        self.syndrome_table = None
-        self.syndrome_basis = None
+        self._basis = None
+        self._syndrome_table = None
+        self._syndrome_basis = None
+        
+    @property
+    def n(self):
+        return self._n
 
+    @property
+    def k(self):
+        return self._k
+    
     @staticmethod
     def __stabilizer_str_to_check_mat(stabilizers: List[str]):
         """
@@ -203,11 +212,11 @@ class StabilizerCode:
         Returns:
             A (n - k) x 1 array of syndromes.
         """
-        new_phys = np.zeros([2 * self.n, 1], dtype=np.int)
-        new_phys[:self.n] = np.reshape(phy_err[-self.n:], [-1, 1])
-        new_phys[-self.n:] = np.reshape(phy_err[:self.n], [-1, 1])
+        new_phys = np.zeros(phy_err.shape, dtype=np.int)
+        new_phys[:self.n, :] = phy_err[-self.n:, :]
+        new_phys[-self.n:, :] = phy_err[:self.n, :]
 
-        return vectorized_mod2(np.dot(self.H, new_phys))
+        return vectorized_mod2(np.dot(self._H, new_phys))
 
     def phys_err_to_logic_err(self, phy_err: np.ndarray) -> np.ndarray:
         """
@@ -224,10 +233,10 @@ class StabilizerCode:
         # check syndrome free
         assert np.all(self.phys_err_to_syndrome(phy_err) == 0)
 
-        if self.basis is None:
-            self.basis = z2_find_basis(np.concatenate((self.H, self.L), axis=0))
+        if self._basis is None:
+            self._basis = z2_find_basis(np.concatenate((self._H, self._L), axis=0))
 
-        y = z2_gaussian_elimination(np.concatenate((np.transpose(self.basis), phy_err), axis=1), back_substitution=True)
+        y = z2_gaussian_elimination(np.concatenate((np.transpose(self._basis), phy_err), axis=1), back_substitution=True)
 
         logic_err = []
         for i in range(self.k):
@@ -253,10 +262,10 @@ class StabilizerCode:
         """
         assert len(syndrome) == self.n - self.k
 
-        if self.syndrome_table is None:
+        if self._syndrome_table is None:
             self.__generate_syndrome_table()
 
-        return self.syndrome_table[np.array2string(syndrome)]
+        return self._syndrome_table[np.array2string(syndrome)]
 
     def syndrome_basis_correction(self, syndrome: np.ndarray) -> np.ndarray:
         """
@@ -270,14 +279,14 @@ class StabilizerCode:
         """
         assert len(syndrome) == self.n - self.k
 
-        if self.syndrome_basis is None:
+        if self._syndrome_basis is None:
             self.__generate_syndrome_basis()
 
-        return np.dot(self.syndrome_basis, syndrome)
+        return np.dot(self._syndrome_basis, syndrome)
 
     def __generate_syndrome_table(self, rule="qubit_weight"):
         """
-        Generate a syndrome lookup table to self.syndrome_table for syndrome elimination according to minimum weight
+        Generate a syndrome lookup table to self._syndrome_table for syndrome elimination according to minimum weight
         principle. The table should be a dictionary of 2 ** (n - k) keys.
 
         Warning 1: The size of the table grows exponentially with n - k. So this method only works for small code.
@@ -289,12 +298,12 @@ class StabilizerCode:
                   Y error has weight 2. For "qubit_weight", every X, Y, Z error has weight 1.
 
         Returns:
-            self.syndrome_table: A dictionary with 2 ** (n - k) elements. Keys (syndromes) are length-(n - k) strings.
+            self._syndrome_table: A dictionary with 2 ** (n - k) elements. Keys (syndromes) are length-(n - k) strings.
                                  Values (physical errors) are 2n x 1 numpy vectors.
         """
-        self.syndrome_table = dict()
+        self._syndrome_table = dict()
         phys_err = np.zeros([2 * self.n, 1], dtype=np.int)
-        self.syndrome_table[np.array2string(self.phys_err2syndrome(phys_err))] = phys_err
+        self._syndrome_table[np.array2string(self.phys_err_to_syndrome(phys_err))] = phys_err
 
         if rule == "XZ_weight":
             for i in range(1, 2 * self.n):
@@ -304,12 +313,12 @@ class StabilizerCode:
                     phys_err = np.zeros([2 * self.n, 1], dtype=np.int)
                     for k in range(i):
                         phys_err[j[k]] = 1
-                    synd_key = np.array2string(self.phys_err2syndrome(phys_err))
-                    if synd_key not in self.syndrome_table:
-                        self.syndrome_table[synd_key] = phys_err
-                        if len(self.syndrome_table) == 2 ** (self.n - self.k):
+                    synd_key = np.array2string(self.phys_err_to_syndrome(phys_err))
+                    if synd_key not in self._syndrome_table:
+                        self._syndrome_table[synd_key] = phys_err
+                        if len(self._syndrome_table) == 2 ** (self.n - self.k):
                             break
-                if len(self.syndrome_table) == 2 ** (self.n - self.k):
+                if len(self._syndrome_table) == 2 ** (self.n - self.k):
                     break
         elif rule == "qubit_weight":
             for i in range(1, self.n):
@@ -329,14 +338,14 @@ class StabilizerCode:
                             elif errstr[l] == '2':
                                 phys_err[j[l]] = 1
                                 phys_err[j[l] + self.n] = 1
-                        synd_key = np.array2string(self.phys_err2syndrome(phys_err))
-                        if synd_key not in self.syndrome_table:
-                            self.syndrome_table[synd_key] = phys_err
-                            if len(self.syndrome_table) == 2 ** (self.n - self.k):
+                        synd_key = np.array2string(self.phys_err_to_syndrome(phys_err))
+                        if synd_key not in self._syndrome_table:
+                            self._syndrome_table[synd_key] = phys_err
+                            if len(self._syndrome_table) == 2 ** (self.n - self.k):
                                 break
-                    if len(self.syndrome_table) == 2 ** (self.n - self.k):
+                    if len(self._syndrome_table) == 2 ** (self.n - self.k):
                         break
-                if len(self.syndrome_table) == 2 ** (self.n - self.k):
+                if len(self._syndrome_table) == 2 ** (self.n - self.k):
                     break
 
         else:
@@ -351,7 +360,7 @@ class StabilizerCode:
         this method is pretty efficient.
 
         Returns:
-            self.syndrome_basis: a 2n * (n - k) numpy matrix.
+            self._syndrome_basis: a 2n * (n - k) numpy matrix.
         """
         synd_tab = dict()
         for i in range(1, 2 * self.n):
@@ -361,7 +370,7 @@ class StabilizerCode:
                 phys_err = np.zeros([2 * self.n, 1], dtype=np.int)
                 for k in range(i):
                     phys_err[j[k]] = 1
-                synd = self.phys_err2syndrome(phys_err)
+                synd = self.phys_err_to_syndrome(phys_err)
                 nonzero, tag = 0, 0
                 for x in range(self.n - self.k):
                     if synd[x, 0] != 0:
@@ -376,11 +385,9 @@ class StabilizerCode:
             if len(synd_tab) == self.n - self.k:
                 break
 
-        self.syndrome_basis = np.zeros([2 * self.n, self.n - self.k], dtype=np.int)
+        self._syndrome_basis = np.zeros([2 * self.n, self.n - self.k], dtype=np.int)
         for i in range(self.n - self.k):
-            synd = np.zeros([self.n - self.k, 1], dtype=np.int)
-            synd[i] = 1
-            self.syndrome_basis[:, i] = synd_tab[i][:, 0]
+            self._syndrome_basis[:, i] = synd_tab[i][:, 0]
 
     def uniform_random_err_history(self, l: int, px: float, py: float, pz: float) -> np.ndarray:
         """

@@ -1,9 +1,10 @@
 from enum import Enum
 from typing import List, Tuple
+from qecc.StabilizerCode import StabilizerCode, vectorized_mod2
 
 import numpy as np
 import networkx as nx
-import StabilizerCode
+
 
 class EdgeType(Enum):
     H = 0
@@ -56,7 +57,7 @@ class Point:
                 Edge(self.x, self.y - 1, EdgeType.H)]
 
 
-class ToricCode(StabilizerCode.StabilizerCode):
+class ToricCode(StabilizerCode):
     def __init__(self, x: int, y: int):
         """
         Initialize the toric code as a stabilizer code.
@@ -65,14 +66,22 @@ class ToricCode(StabilizerCode.StabilizerCode):
             x: The length of the torus lattice on x direction.
             y: The length of the torus lattice on y direction.
         """
-        self.x = x
-        self.y = y
+        self._x = x
+        self._y = y
         stabilizers_str, logic_str = self.__generate_stabilizers()
         super().__init__(stabilizers_str, logic_str)
 
+    @property
+    def x(self):
+        return self._x
+
+    @property
+    def y(self):
+        return self._y
+
     def __generate_stabilizers(self) -> Tuple[List[str], List[str]]:
         """
-        Generate the string list of stabilizers and logic operators.
+        Generate the string list of stabilizers and logic operators for toric code.
 
         Returns:
             (stabilizer_str, logic_str): String list for stabilizers and logic operators.
@@ -225,7 +234,7 @@ class ToricCode(StabilizerCode.StabilizerCode):
         if synd_x.sum() % 2 == 1:
             synd_x[self.x - 1, self.y - 1] = 1
 
-        synd_x, synd_z = StabilizerCode.vectorized_mod2(synd_x), StabilizerCode.vectorized_mod2(synd_z)
+        synd_x, synd_z = vectorized_mod2(synd_x), vectorized_mod2(synd_z)
 
         # construct graph
         G_x, G_z = nx.Graph(), nx.Graph()
