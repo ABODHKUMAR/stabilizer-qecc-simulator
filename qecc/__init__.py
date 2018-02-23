@@ -1,5 +1,5 @@
-__all__ = ['StabilizerCode', 'ToricCode', 'ML']
+__all__ = ['StabilizerCode', 'ToricCode', 'analyzer']
 
 from qecc.StabilizerCode import *
 from qecc.ToricCode import *
-from qecc.ML import *
+from qecc.analyzer import *
