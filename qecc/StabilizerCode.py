@@ -213,8 +213,13 @@ class StabilizerCode:
             A (n - k) x 1 array of syndromes.
         """
         new_phys = np.zeros(phy_err.shape, dtype=np.int)
-        new_phys[:self.n, :] = phy_err[-self.n:, :]
-        new_phys[-self.n:, :] = phy_err[:self.n, :]
+
+        if len(phy_err.shape) == 2:
+            new_phys[:self.n, :] = phy_err[-self.n:, :]
+            new_phys[-self.n:, :] = phy_err[:self.n, :]
+        elif len(phy_err.shape) == 1:
+            new_phys[:self.n] = phy_err[-self.n:]
+            new_phys[-self.n:] = phy_err[:self.n]
 
         return vectorized_mod2(np.dot(self._H, new_phys))
 

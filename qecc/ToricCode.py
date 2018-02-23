@@ -136,7 +136,7 @@ class ToricCode(StabilizerCode):
         Args:
             obj: A point or an edge.
 
-        Reutns:
+        Returns:
             The corresponding index.
         """
         if isinstance(obj, Edge):
@@ -155,7 +155,7 @@ class ToricCode(StabilizerCode):
             A point.
         """
         y = idx % self.y
-        x = (idx - y) // self.x
+        x = (idx - y) // self.y
         return Point(x, y)
 
     def __distance(self, pt1: Point, pt2: Point) -> int:
